@@ -19,6 +19,7 @@ char *(*old_dcgettext) (const char *__domainname,
                         const char *__msgid, int __category);
 
 static char *g_messages[65536] = {0};
+static char *g_plural_messages[65536] = {0};
 static int g_nextIndex;
 
 static const char *escape_out(FILE *out, const char *msg) {
@@ -42,6 +43,25 @@ static const char *escape_out(FILE *out, const char *msg) {
 
 enum PotContent { Header = 0x1, Body = 0x2 };
 
+static void output_message(FILE *sink, const char *msg, const char *msgP) {
+	fprintf(sink,
+	    "msgid \"");
+	if (strlen(msg) > 70 ||
+	    strchr(msg, '\n') != NULL)
+		fprintf(sink, "\"\n\"");
+	escape_out(sink, msg);
+	fprintf(sink, "\"\n");
+	if (msgP) {
+		fprintf(sink, "msgid_plural \"");
+		escape_out(sink, msgP);
+		fprintf(sink, "\"\n"
+		    "msgstr_plural[0] \"\"\n"
+		    "msgstr_plural[1] \"\"\n\n");
+	} else {
+		fprintf(sink, "msgstr \"\"\n\n");
+	}
+}
+
 static void produce_pot_lines(FILE *sink, enum PotContent c) {
 	if (c & Header) {
 		fprintf(sink, "msgid \"\"\n"
@@ -51,14 +71,7 @@ static void produce_pot_lines(FILE *sink, enum PotContent c) {
 	}
 	if (c & Body) {
 		for (int i = 0; i < g_nextIndex; ++i) {
-			fprintf(sink,
-				"msgid \"");
-			if (strlen(g_messages[i]) > 70 ||
-				strchr(g_messages[i], '\n') != NULL)
-				fprintf(sink, "\"\n\"");
-			escape_out(sink, g_messages[i]);
-			fprintf(sink, "\"\n"
-				"msgstr \"\"\n\n");
+			output_message(sink, g_messages[i], g_plural_messages[i]);
 		}
 	}
 }
@@ -124,8 +137,10 @@ static void generate_all_pot_parts(void) {
 
 static void finish() {
 	generate_all_pot_parts();
-	for (int i = 0; i < g_nextIndex; ++i)
+	for (int i = 0; i < g_nextIndex; ++i) {
 		free(g_messages[i]);
+		free(g_plural_messages[i]);
+	}
 	g_nextIndex = 0;
 }
 
@@ -139,7 +154,7 @@ static void init() {
 	old_dcgettext = dlsym(RTLD_NEXT, "dcgettext");
 }
 
-static void use(const char *msg) {
+static void use(const char *msg, const char *msgPlural) {
 	if ((size_t)g_nextIndex == sizeof(g_messages) / sizeof(*g_messages)) {
 		fprintf(stderr, "Limit for unique messages reached! POT generation stopped.\n");
 		return;
@@ -152,28 +167,31 @@ static void use(const char *msg) {
 	}
 
 	g_messages[g_nextIndex] = malloc(1 + strlen(msg));
+	if (msgPlural) {
+		g_plural_messages[g_nextIndex] = malloc(1 + strlen(msgPlural));
+		strcpy(g_plural_messages[g_nextIndex], msgPlural);
+	}
 
 	strcpy(g_messages[g_nextIndex++], msg);
 }
 
 char *gettext(const char *msgid) {
 	init();
-	use(msgid);
+	use(msgid, NULL);
 	return old_gettext(msgid);
 }
 
 char *dngettext(const char *domainname, const char *msgid1,
 		const char *msgid2, unsigned long int n) {
 	init();
-	use(msgid1);
-	use(msgid2);
+	use(msgid1, msgid2);
 	return old_dngettext(domainname, msgid1, msgid2, n);
 }
 
 char *dcgettext(const char *domainname, const char *msgid,
 		int category) {
 	init();
-	use(msgid);
+	use(msgid, NULL);
 	return old_dcgettext(domainname, msgid, category);
 }
 
