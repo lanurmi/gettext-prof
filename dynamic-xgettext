@@ -1,0 +1,19 @@
+#!/bin/bash
+# (C) Lauri Nurmi <lanurmi@iki.fi>, 2019.
+
+export POT_OUT=$HOME/.pot_out
+export INJECTOR="$(dirname $0)/gettext-profiler.so"
+
+LD_PRELOAD=$INJECTOR $*
+
+for x in "$POT_OUT"/*_header.pot ; do
+	domain="$(basename $x _header.pot)"
+	cat << EOF > "${domain}_dynamic.pot"
+# Esta fichero está generado dinámicamente.
+# No es el POT oficial de $domain.
+
+EOF
+	cat "$POT_OUT/$domain"* | msguniq >> "${domain}_dynamic.pot"
+	echo "Resultado: ${domain}_dynamic.pot"
+done
+
