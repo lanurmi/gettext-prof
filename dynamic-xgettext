@@ -4,7 +4,7 @@
 export POT_OUT=$HOME/.pot_out
 export INJECTOR="$(dirname $0)/gettext-profiler.so"
 
-LD_PRELOAD=$INJECTOR $*
+LD_PRELOAD=$INJECTOR "$@"
 
 for x in "$POT_OUT"/*_header.pot ; do
 	domain="$(basename $x _header.pot)"
