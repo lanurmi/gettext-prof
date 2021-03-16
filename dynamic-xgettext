@@ -13,7 +13,7 @@ for x in "$POT_OUT"/*_header.pot ; do
 # No es el POT oficial de $domain.
 
 EOF
-	cat "$POT_OUT/$domain"* | msguniq >> "${domain}_dynamic.pot"
+	find "$POT_OUT" -name "$domain*" | xargs cat | msguniq >> "${domain}_dynamic.pot"
 	echo "Resultado: ${domain}_dynamic.pot"
 done
 
